@@ -1,6 +1,10 @@
-# Deploying to Railway
+# Deploying Perplexity MCP HTTP Server to Railway
 
-This guide explains how to deploy the Perplexity MCP Server to Railway.
+This guide explains how to deploy the Perplexity MCP Server with HTTP transport to Railway.
+
+## Overview
+
+This MCP server now runs as an HTTP service using Server-Sent Events (SSE) for real-time communication. It exposes HTTP endpoints that can be accessed by MCP clients over the web.
 
 ## Prerequisites
 
@@ -64,18 +68,58 @@ After deployment, you need to set the required environment variables:
 3. Go to "Variables" tab
 4. Add the following variables:
    - `PERPLEXITY_API_KEY`: Your Perplexity API key
+   - `PORT`: (Optional) Port number - Railway will set this automatically
 
 ### 4. Verify Deployment
 
 1. Check the deployment logs in Railway dashboard
-2. Your MCP server should be running and ready to accept connections
-3. The service will restart automatically if it crashes
+2. Your MCP server should be running and accessible via HTTP
+3. Test the health endpoint: `https://your-app.railway.app/health`
+4. The service will restart automatically if it crashes
+
+## HTTP Endpoints
+
+Once deployed, your MCP server will expose the following endpoints:
+
+- **Health Check**: `GET /health` - Returns server status
+- **SSE Connection**: `GET /sse` - Establishes MCP SSE connection
+- **Messages**: `POST /messages?sessionId=<session_id>` - Sends MCP messages
+
+## Connecting to the HTTP MCP Server
+
+### For MCP Clients
+
+To connect an MCP client to your deployed HTTP server:
+
+1. **Health Check**: First, verify the server is running:
+   ```bash
+   curl https://your-app.railway.app/health
+   ```
+
+2. **Establish SSE Connection**: 
+   ```bash
+   curl -N -H "Accept: text/event-stream" https://your-app.railway.app/sse
+   ```
+
+3. **Send MCP Messages**: Use the session ID from the SSE connection:
+   ```bash
+   curl -X POST "https://your-app.railway.app/messages?sessionId=<session_id>" \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}'
+   ```
+
+### Using with Claude Desktop or Other MCP Clients
+
+Configure your MCP client to use the HTTP transport with these endpoints:
+- SSE URL: `https://your-app.railway.app/sse`
+- Messages URL: `https://your-app.railway.app/messages`
 
 ## Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `PERPLEXITY_API_KEY` | Yes | Your Perplexity API key from https://www.perplexity.ai/settings/api |
+| `PORT` | No | Server port (Railway sets this automatically) |
 
 ## Project Structure
 

@@ -20,4 +20,7 @@ ENV NODE_ENV=production
 
 RUN npm ci --ignore-scripts --omit-dev
 
+# Expose the port that the app runs on
+EXPOSE 3000
+
 ENTRYPOINT ["node", "dist/index.js"]

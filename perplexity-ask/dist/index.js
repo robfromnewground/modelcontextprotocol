@@ -8,8 +8,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+import express from "express";
+import cors from "cors";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextprotocol/sdk/types.js";
 /**
  * Definition of the Perplexity Ask Tool.
@@ -185,114 +187,203 @@ function performChatCompletion(messages_1) {
         return messageContent;
     });
 }
-// Initialize the server with tool metadata and capabilities
-const server = new Server({
-    name: "example-servers/perplexity-ask",
-    version: "0.1.0",
-}, {
-    capabilities: {
-        tools: {},
-    },
-});
-/**
- * Registers a handler for listing available tools.
- * When the client requests a list of tools, this handler returns all available Perplexity tools.
- */
-server.setRequestHandler(ListToolsRequestSchema, () => __awaiter(void 0, void 0, void 0, function* () {
-    return ({
-        tools: [PERPLEXITY_ASK_TOOL, PERPLEXITY_RESEARCH_TOOL, PERPLEXITY_REASON_TOOL],
+// Get port from environment or use default
+const PORT = parseInt(process.env.PORT || "3000", 10);
+// Create a function to initialize the MCP server
+function createMCPServer() {
+    const server = new Server({
+        name: "perplexity-ask-http",
+        version: "0.1.0",
+    }, {
+        capabilities: {
+            tools: {},
+        },
     });
-}));
-/**
- * Registers a handler for calling a specific tool.
- * Processes requests by validating input and invoking the appropriate tool.
- *
- * @param {object} request - The incoming tool call request.
- * @returns {Promise<object>} The response containing the tool's result or an error.
- */
-server.setRequestHandler(CallToolRequestSchema, (request) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const { name, arguments: args } = request.params;
-        if (!args) {
-            throw new Error("No arguments provided");
-        }
-        switch (name) {
-            case "perplexity_ask": {
-                if (!Array.isArray(args.messages)) {
-                    throw new Error("Invalid arguments for perplexity_ask: 'messages' must be an array");
-                }
-                // Invoke the chat completion function with the provided messages
-                const messages = args.messages;
-                const result = yield performChatCompletion(messages, "sonar-pro");
-                return {
-                    content: [{ type: "text", text: result }],
-                    isError: false,
-                };
-            }
-            case "perplexity_research": {
-                if (!Array.isArray(args.messages)) {
-                    throw new Error("Invalid arguments for perplexity_research: 'messages' must be an array");
-                }
-                // Invoke the chat completion function with the provided messages using the deep research model
-                const messages = args.messages;
-                const result = yield performChatCompletion(messages, "sonar-deep-research");
-                return {
-                    content: [{ type: "text", text: result }],
-                    isError: false,
-                };
-            }
-            case "perplexity_reason": {
-                if (!Array.isArray(args.messages)) {
-                    throw new Error("Invalid arguments for perplexity_reason: 'messages' must be an array");
-                }
-                // Invoke the chat completion function with the provided messages using the reasoning model
-                const messages = args.messages;
-                const result = yield performChatCompletion(messages, "sonar-reasoning-pro");
-                return {
-                    content: [{ type: "text", text: result }],
-                    isError: false,
-                };
-            }
-            default:
-                // Respond with an error if an unknown tool is requested
-                return {
-                    content: [{ type: "text", text: `Unknown tool: ${name}` }],
-                    isError: true,
-                };
-        }
-    }
-    catch (error) {
-        // Return error details in the response
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-                },
-            ],
-            isError: true,
-        };
-    }
-}));
-/**
- * Initializes and runs the server using standard I/O for communication.
- * Logs an error and exits if the server fails to start.
- */
-function runServer() {
-    return __awaiter(this, void 0, void 0, function* () {
+    /**
+     * Registers a handler for listing available tools.
+     * When the client requests a list of tools, this handler returns all available Perplexity tools.
+     */
+    server.setRequestHandler(ListToolsRequestSchema, () => __awaiter(this, void 0, void 0, function* () {
+        return ({
+            tools: [PERPLEXITY_ASK_TOOL, PERPLEXITY_RESEARCH_TOOL, PERPLEXITY_REASON_TOOL],
+        });
+    }));
+    /**
+     * Registers a handler for calling a specific tool.
+     * Processes requests by validating input and invoking the appropriate tool.
+     *
+     * @param {object} request - The incoming tool call request.
+     * @returns {Promise<object>} The response containing the tool's result or an error.
+     */
+    server.setRequestHandler(CallToolRequestSchema, (request) => __awaiter(this, void 0, void 0, function* () {
         try {
-            const transport = new StdioServerTransport();
-            yield server.connect(transport);
-            console.error("Perplexity MCP Server running on stdio with Ask, Research, and Reason tools");
+            const { name, arguments: args } = request.params;
+            if (!args) {
+                throw new Error("No arguments provided");
+            }
+            switch (name) {
+                case "perplexity_ask": {
+                    if (!Array.isArray(args.messages)) {
+                        throw new Error("Invalid arguments for perplexity_ask: 'messages' must be an array");
+                    }
+                    // Invoke the chat completion function with the provided messages
+                    const messages = args.messages;
+                    const result = yield performChatCompletion(messages, "sonar-pro");
+                    return {
+                        content: [{ type: "text", text: result }],
+                        isError: false,
+                    };
+                }
+                case "perplexity_research": {
+                    if (!Array.isArray(args.messages)) {
+                        throw new Error("Invalid arguments for perplexity_research: 'messages' must be an array");
+                    }
+                    // Invoke the chat completion function with the provided messages using the deep research model
+                    const messages = args.messages;
+                    const result = yield performChatCompletion(messages, "sonar-deep-research");
+                    return {
+                        content: [{ type: "text", text: result }],
+                        isError: false,
+                    };
+                }
+                case "perplexity_reason": {
+                    if (!Array.isArray(args.messages)) {
+                        throw new Error("Invalid arguments for perplexity_reason: 'messages' must be an array");
+                    }
+                    // Invoke the chat completion function with the provided messages using the reasoning model
+                    const messages = args.messages;
+                    const result = yield performChatCompletion(messages, "sonar-reasoning-pro");
+                    return {
+                        content: [{ type: "text", text: result }],
+                        isError: false,
+                    };
+                }
+                default:
+                    // Respond with an error if an unknown tool is requested
+                    return {
+                        content: [{ type: "text", text: `Unknown tool: ${name}` }],
+                        isError: true,
+                    };
+            }
         }
         catch (error) {
-            console.error("Fatal error running server:", error);
+            // Return error details in the response
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+                    },
+                ],
+                isError: true,
+            };
+        }
+    }));
+    return server;
+}
+// Create Express application
+const app = express();
+app.use(express.json());
+// Configure CORS to expose Mcp-Session-Id header for browser-based clients
+app.use(cors({
+    origin: '*', // Allow all origins - adjust as needed for production
+    exposedHeaders: ['Mcp-Session-Id']
+}));
+// Store transports by session ID
+const transports = {};
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'healthy',
+        service: 'perplexity-ask-mcp-server',
+        version: '0.1.0',
+        timestamp: new Date().toISOString()
+    });
+});
+// SSE endpoint for MCP communication
+app.get('/sse', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log('Received GET request to /sse - establishing SSE connection');
+    try {
+        const transport = new SSEServerTransport('/messages', res);
+        transports[transport.sessionId] = transport;
+        // Clean up transport when connection closes
+        res.on("close", () => {
+            console.log(`SSE connection closed for session ${transport.sessionId}`);
+            delete transports[transport.sessionId];
+        });
+        // Create and connect MCP server
+        const server = createMCPServer();
+        yield server.connect(transport);
+        console.log(`MCP server connected via SSE for session ${transport.sessionId}`);
+    }
+    catch (error) {
+        console.error('Error establishing SSE connection:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to establish SSE connection' });
+        }
+    }
+}));
+// Messages endpoint for receiving MCP requests
+app.post("/messages", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const sessionId = req.query.sessionId;
+    if (!sessionId) {
+        res.status(400).json({ error: 'sessionId query parameter is required' });
+        return;
+    }
+    const transport = transports[sessionId];
+    if (!transport) {
+        res.status(400).json({ error: 'No transport found for sessionId' });
+        return;
+    }
+    try {
+        yield transport.handlePostMessage(req, res, req.body);
+    }
+    catch (error) {
+        console.error(`Error handling message for session ${sessionId}:`, error);
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to handle message' });
+        }
+    }
+}));
+/**
+ * Starts the HTTP server for MCP communication.
+ */
+function startServer() {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            app.listen(PORT, () => {
+                console.log(`Perplexity MCP Server running on port ${PORT}`);
+                console.log(`SSE endpoint: http://localhost:${PORT}/sse`);
+                console.log(`Messages endpoint: http://localhost:${PORT}/messages`);
+                console.log(`Health check: http://localhost:${PORT}/health`);
+                console.log('Available tools: perplexity_ask, perplexity_research, perplexity_reason');
+            });
+        }
+        catch (error) {
+            console.error("Fatal error starting server:", error);
             process.exit(1);
         }
     });
 }
-// Start the server and catch any startup errors
-runServer().catch((error) => {
-    console.error("Fatal error running server:", error);
+// Handle graceful shutdown
+process.on('SIGINT', () => __awaiter(void 0, void 0, void 0, function* () {
+    console.log('Shutting down server...');
+    // Close all active transports
+    for (const sessionId in transports) {
+        try {
+            console.log(`Closing transport for session ${sessionId}`);
+            yield transports[sessionId].close();
+            delete transports[sessionId];
+        }
+        catch (error) {
+            console.error(`Error closing transport for session ${sessionId}:`, error);
+        }
+    }
+    console.log('Server shutdown complete');
+    process.exit(0);
+}));
+// Start the server
+startServer().catch((error) => {
+    console.error("Fatal error starting server:", error);
     process.exit(1);
 });
