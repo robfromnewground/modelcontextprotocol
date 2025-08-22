@@ -29,6 +29,7 @@
   "scripts": {
     "build": "tsc && shx chmod +x dist/*.js",
     "prepare": "npm run build",
+    "start": "node dist/index.js",
     "watch": "tsc --watch"
   },
   "dependencies": {
